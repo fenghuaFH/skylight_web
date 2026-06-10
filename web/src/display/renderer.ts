@@ -42,6 +42,7 @@ import { AIRPORTS } from "./airports.js";
 import { classifyGlyph, drawAircraftGlyph, GLYPH_SCALE } from "./aircraftGlyph.js";
 import { computeSky, type Sky, type Tle } from "./celestial.js";
 import { ASTERISMS } from "./stars.js";
+import { serverHttp } from "../lib/connection.js";
 
 /** How far in the past we render, ms. Just over the ~1 Hz fix interval. */
 const RENDER_DELAY_MS = 1150;
@@ -176,7 +177,7 @@ export class Renderer {
 
   private async fetchTles(): Promise<void> {
     try {
-      const res = await fetch("/api/tle");
+      const res = await fetch(serverHttp("/api/tle"));
       if (res.ok) this.tles = (await res.json()) as Tle[];
     } catch {
       /* keep whatever we had */

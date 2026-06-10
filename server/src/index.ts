@@ -3,9 +3,11 @@
 // panel is reachable from your phone on the LAN.
 
 import { createServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import express from "express";
 import { DEFAULT_CONFIG, type Config, type DataSource } from "@shared/index.js";
 import { ConfigStore, ConfigValidationError } from "./config-store.js";
@@ -45,6 +47,39 @@ function hasPersistedRadioUrl(path: string): boolean {
     return typeof raw.radioUrl === "string";
   } catch {
     return false;
+  }
+}
+
+function getSslCredentials(dataDir: string): { key: Buffer; cert: Buffer } | null {
+  if (process.env.HTTPS !== "1") return null;
+
+  const keyPath = resolve(dataDir, "key.pem");
+  const certPath = resolve(dataDir, "cert.pem");
+
+  if (!existsSync(keyPath) || !existsSync(certPath)) {
+    console.log("[server] HTTPS=1 set but SSL certificates not found. Generating self-signed certificates...");
+    try {
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
+      }
+      const cmd = `openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -sha256 -days 365 -nodes -subj "/CN=localhost"`;
+      execSync(cmd, { stdio: "inherit" });
+      console.log("[server] Self-signed certificates generated successfully in server/data/.");
+    } catch (err) {
+      console.error("[server] Failed to generate self-signed certificates:", err);
+      console.warn("[server] Falling back to standard HTTP.");
+      return null;
+    }
+  }
+
+  try {
+    return {
+      key: readFileSync(keyPath),
+      cert: readFileSync(certPath),
+    };
+  } catch (err) {
+    console.error("[server] Failed to read SSL certificates:", err);
+    return null;
   }
 }
 
@@ -91,7 +126,8 @@ async function main(): Promise<void> {
 
   app.use(express.json());
 
-  const server = createServer(app);
+  const ssl = getSslCredentials(DATA_DIR);
+  const server = ssl ? createHttpsServer(ssl, app) : createServer(app);
   const hub = new Hub(server, {
     store,
     getSnapshot: () => poller.getSnapshot(),
@@ -115,6 +151,24 @@ async function main(): Promise<void> {
     enricher,
     onSnapshot: (now, aircraft) => hub.broadcastAircraft(now, aircraft),
     onStatus: (status) => hub.broadcastStatus(status),
+  });
+
+  // Enable CORS for API routes if Origin matches ALLOWED_HOSTS
+  app.use("/api", (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      const host = originHostname(origin);
+      if (host !== null && hostMatcher.test(host)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE, PATCH");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+        if (req.method === "OPTIONS") {
+          res.sendStatus(200);
+          return;
+        }
+      }
+    }
+    next();
   });
 
   // --- REST API (handy for debugging + non-WS clients) ---
@@ -161,6 +215,7 @@ async function main(): Promise<void> {
   if (existsSync(WEB_DIST)) {
     app.use(express.static(WEB_DIST));
     app.get("/control", (_req, res) => res.sendFile(resolve(WEB_DIST, "control.html")));
+    app.get("/ar", (_req, res) => res.sendFile(resolve(WEB_DIST, "ar.html")));
     app.get("/", (_req, res) => res.sendFile(resolve(WEB_DIST, "index.html")));
   } else {
     app.get("/", (_req, res) =>
@@ -173,9 +228,11 @@ async function main(): Promise<void> {
   poller.start();
 
   server.listen(PORT, HOST, () => {
-    console.log(`[server] listening on http://${HOST}:${PORT}`);
+    const proto = ssl ? "https" : "http";
+    console.log(`[server] listening on ${proto}://${HOST}:${PORT}`);
     console.log(`[server] data source: ${SOURCE} (${SOURCE === "radio" ? RADIO_URL : API_URL})`);
-    console.log(`[server] control panel: http://<this-host>:${PORT}/control`);
+    console.log(`[server] control panel: ${proto}://<this-host>:${PORT}/control`);
+    console.log(`[server] AR view: ${proto}://<this-host>:${PORT}/ar`);
     console.log(`[server] host allowlist: ${hostMatcher.describe()}`);
   });
 }

@@ -1,0 +1,6 @@
+{
+  "cleanUrls": true,
+  "buildCommand": "pnpm build",
+  "outputDirectory": "web/dist",
+  "framework": "vite"
+}

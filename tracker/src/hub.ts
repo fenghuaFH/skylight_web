@@ -40,13 +40,32 @@ export class TrackerHub {
     app.use((req, res, next) => {
       const origin = req.headers.origin;
       if (origin) {
-        let sameHost = false;
+        let allowed = false;
         try {
-          sameHost = new URL(origin).hostname === req.hostname;
+          const originHost = new URL(origin).hostname.toLowerCase();
+          const sameHost = originHost === req.hostname.toLowerCase();
+          if (sameHost) {
+            allowed = true;
+          } else {
+            const extras = (process.env.ALLOWED_HOSTS ?? "")
+              .split(",")
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean);
+            for (const e of extras) {
+              if (e === originHost) {
+                allowed = true;
+                break;
+              }
+              if (e.startsWith("*.") && originHost.endsWith(e.slice(1)) && originHost !== e.slice(2)) {
+                allowed = true;
+                break;
+              }
+            }
+          }
         } catch {
           /* malformed Origin — treat as not allowed */
         }
-        if (sameHost) {
+        if (allowed) {
           res.setHeader("Access-Control-Allow-Origin", origin);
           res.setHeader("Vary", "Origin");
           res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");

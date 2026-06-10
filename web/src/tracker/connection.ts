@@ -17,10 +17,21 @@ import type {
 const SAME_ORIGIN = location.port === "5173" || location.port === "3001";
 
 export function trackerHttp(path: string): string {
+  const customUrl = import.meta.env.VITE_TRACKER_URL;
+  if (customUrl) {
+    const normalized = customUrl.replace(/\/$/, "");
+    return `${normalized}${path}`;
+  }
   return SAME_ORIGIN ? path : `${location.protocol}//${location.hostname}:3001${path}`;
 }
 
 export function trackerWsUrl(): string {
+  const customUrl = import.meta.env.VITE_TRACKER_URL;
+  if (customUrl) {
+    const urlObj = new URL(customUrl, window.location.href);
+    const proto = urlObj.protocol === "https:" ? "wss" : "ws";
+    return `${proto}://${urlObj.host}/tracker-ws`;
+  }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   return SAME_ORIGIN
     ? `${proto}://${location.host}/tracker-ws`

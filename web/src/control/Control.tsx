@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Config, ShowFields, LocationProfile } from "@shared/index.js";
 import { formatLatLon } from "@shared/geo.js";
 import { useStream } from "../lib/useStream.js";
+import { serverHttp } from "../lib/connection.js";
 import { nextISSPass, type Tle } from "../display/celestial.js";
 import { ColorRow, Row, Section, Segmented, Slider, TextInput, Toggle } from "./components.js";
 
@@ -40,7 +41,7 @@ export function Control() {
   const [tles, setTles] = useState<Tle[]>([]);
   useEffect(() => {
     let on = true;
-    fetch("/api/tle")
+    fetch(serverHttp("/api/tle"))
       .then((r) => (r.ok ? r.json() : []))
       .then((t) => on && setTles(t as Tle[]))
       .catch(() => {});
@@ -72,12 +73,35 @@ export function Control() {
     setGeoBusy(true);
     setGeoErr(null);
     try {
-      const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
-      if (!r.ok) {
-        setGeoErr(r.status === 404 ? `No match for “${q}”` : "Lookup failed");
+      let hit: { lat: number; lon: number; name: string } | null = null;
+      if (!state.connected) {
+        // Direct browser-only geocoding via Nominatim
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+          headers: {
+            "Accept": "application/json"
+          }
+        });
+        if (r.ok) {
+          const list = await r.json();
+          if (list && list.length > 0) {
+            hit = {
+              lat: parseFloat(list[0].lat),
+              lon: parseFloat(list[0].lon),
+              name: list[0].display_name.split(",")[0],
+            };
+          }
+        }
+      } else {
+        const r = await fetch(serverHttp(`/api/geocode?q=${encodeURIComponent(q)}`));
+        if (r.ok) {
+          hit = (await r.json()) as { lat: number; lon: number; name: string };
+        }
+      }
+
+      if (!hit) {
+        setGeoErr(`No match for “${q}”`);
         return;
       }
-      const hit = (await r.json()) as { lat: number; lon: number; name: string };
       set({ centerLat: hit.lat, centerLon: hit.lon, locationName: hit.name });
     } catch {
       setGeoErr("Lookup failed");

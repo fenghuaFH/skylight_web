@@ -6,3 +6,5 @@ export * from "./geo.js";
 export * from "./camera.js";
 export * from "./aim.js";
 export * from "./tracker-messages.js";
+export * from "./ar.js";
+export * from "./stars.js";
