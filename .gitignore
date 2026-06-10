@@ -26,3 +26,4 @@ tracker/models/
 
 # local harness state
 .claude/
+.vercel
