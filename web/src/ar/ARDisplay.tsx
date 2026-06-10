@@ -34,7 +34,11 @@ interface DeviceOrientationEventWithPermission extends Function {
   requestPermission?: () => Promise<"granted" | "denied">;
 }
 
-export function ARDisplay() {
+interface ARDisplayProps {
+  onBack: () => void;
+}
+
+export function ARDisplay({ onBack }: ARDisplayProps) {
   const { state } = useStream("display");
 
   // State
@@ -623,9 +627,9 @@ export function ARDisplay() {
               {loading ? "Initializing..." : "Authorize & Start AR"}
             </button>
             
-            <a href="/control" className="ar-back-link">
-              ← Go to Control Panel
-            </a>
+            <button className="ar-back-link" onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-muted)" }}>
+              ← Return to Dashboard
+            </button>
           </div>
         </div>
       )}
@@ -718,9 +722,9 @@ export function ARDisplay() {
               </div>
             </div>
             
-            <a href="/control" className="ar-back-link ar-ui-element" style={{ color: "#fff", background: "var(--color-glass-bg)", border: "1px solid var(--color-glass-border)", padding: "6px 12px", borderRadius: "8px" }}>
-              ← Return to Control Panel
-            </a>
+            <button className="ar-back-link ar-ui-element" onClick={onBack} style={{ color: "#fff", background: "var(--color-glass-bg)", border: "1px solid var(--color-glass-border)", padding: "6px 12px", borderRadius: "8px", cursor: "pointer" }}>
+              ← Return to Dashboard
+            </button>
           </div>
         </div>
       )}

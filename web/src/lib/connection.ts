@@ -108,14 +108,11 @@ export class Connection {
     const lat = cfg.centerLat;
     const lon = cfg.centerLon;
     try {
-      // Fetch public airplanes.live API via CORS proxy
-      const url = `https://api.allorigins.win/get?url=${encodeURIComponent(
-        `https://api.airplanes.live/v2/point/${lat}/${lon}/${radius}`
-      )}`;
+      // Fetch public airplanes.live API via our Vercel serverless proxy
+      const url = `/api/aircraft?lat=${lat}&lon=${lon}&radius=${radius}`;
       const res = await fetch(url);
       if (!res.ok) return;
-      const data = await res.json();
-      const raw = JSON.parse(data.contents);
+      const raw = await res.json();
       const rawList = raw.aircraft || raw.ac || [];
       const now = Date.now();
       

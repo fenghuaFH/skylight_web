@@ -60,10 +60,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),
-        control: resolve(__dirname, "control.html"),
-        ar: resolve(__dirname, "ar.html"),
-        tracker: resolve(__dirname, "tracker.html"),
-        tv: resolve(__dirname, "tv.html"),
       },
     },
   },
