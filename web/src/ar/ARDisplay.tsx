@@ -5,6 +5,7 @@ import { useStream } from "../lib/useStream.js";
 import { serverHttp } from "../lib/connection.js";
 import { drawAircraftGlyph, classifyGlyph } from "../display/aircraftGlyph.js";
 import { computeSky } from "../display/celestial.js";
+import "../styles/ar.css";
 
 // Helper to normalize aircraft data from the public airplanes.live/readsb JSON format
 function normalizeRawAircraft(raw: any, ts: number): Aircraft {
@@ -82,7 +83,7 @@ export function ARDisplay({ onBack }: ARDisplayProps) {
   gpsCoordsRef.current = gpsCoords;
   
   const planesRef = useRef<Aircraft[]>([]);
-  planesRef.current = standaloneMode ? standalonePlanes : state.aircraft;
+  planesRef.current = (standaloneMode || (!state.connected && gpsCoords)) ? standalonePlanes : state.aircraft;
 
   const tlesRef = useRef(tles);
   tlesRef.current = tles;
@@ -129,14 +130,10 @@ export function ARDisplay({ onBack }: ARDisplayProps) {
     const fetchStandalonePlanes = async () => {
       try {
         const radius = 15; // 15 miles
-        // Use allorigins CORS proxy to fetch airplanes.live API directly in client
-        const url = `https://api.allorigins.win/get?url=${encodeURIComponent(
-          `https://api.airplanes.live/v2/point/${gpsCoords.lat}/${gpsCoords.lon}/${radius}`
-        )}`;
+        const url = `/api/aircraft?lat=${gpsCoords.lat}&lon=${gpsCoords.lon}&radius=${radius}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const raw = JSON.parse(data.contents);
+        const raw = await res.json();
         const rawList = raw.aircraft || raw.ac || [];
         const now = Date.now();
         const list: Aircraft[] = rawList.map((ac: any) => normalizeRawAircraft(ac, now));

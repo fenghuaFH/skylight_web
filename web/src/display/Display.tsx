@@ -3,6 +3,7 @@ import type { Config, Theme } from "@shared/index.js";
 import { DEFAULT_CONFIG } from "@shared/index.js";
 import { useStream } from "../lib/useStream.js";
 import { Renderer } from "./renderer.js";
+import "../styles/display.css";
 
 const THEMES: Theme[] = ["ambient", "telemetry", "focus"];
 
